@@ -3,11 +3,11 @@ FROM node:10.1.0-alpine
 WORKDIR /app
 
 COPY package.json /app/
-COPY package-lock.json /app/
+COPY yarn.lock /app/
 
-RUN npm install --production && npm cache clean
+RUN yarn install --production && yarn cache clean
 
 COPY . /app
 
 ENV NODE_ENV production
-CMD ["node", "-r", "esm", "./bin/server"]
+ENTRYPOINT ["node", "-r", "esm", "./bin/server"]
