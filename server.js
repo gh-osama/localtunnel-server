@@ -12,6 +12,7 @@ const debug = Debug('localtunnel:server');
 
 export default function(opt) {
     opt = opt || {};
+    const port = process.env.PORT || opt.port || 3000;
 
     const validHosts = (opt.domain) ? [opt.domain] : undefined;
     const myTldjs = tldjs.fromUserSettings({ validHosts });
@@ -162,6 +163,10 @@ export default function(opt) {
         }
 
         client.handleUpgrade(req, socket);
+    });
+
+    server.listen(port, '0.0.0.0', () => {
+        debug('server listening on port: %d', port);
     });
 
     return server;

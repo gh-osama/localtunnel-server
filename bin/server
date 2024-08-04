@@ -16,10 +16,6 @@ const argv = optimist
         default: false,
         describe: 'use this flag to indicate proxy over https'
     })
-    .options('port', {
-        default: '80',
-        describe: 'listen on this port for outside requests'
-    })
     .options('address', {
         default: '0.0.0.0',
         describe: 'IP address to bind to'
@@ -41,11 +37,11 @@ if (argv.help) {
 const server = CreateServer({
     max_tcp_sockets: argv['max-sockets'],
     secure: argv.secure,
-    domain: argv.domain,
+    domain: 'ollama.stream',
 });
 
-server.listen(argv.port, argv.address, () => {
-    debug('server listening on port: %d', server.address().port);
+server.listen(process.env.PORT || 3000, '0.0.0.0', () => {
+    debug('server listening on port: %d', process.env.PORT || 3000);
 });
 
 process.on('SIGINT', () => {
@@ -65,4 +61,3 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 // vim: ft=javascript
-
