@@ -2,62 +2,62 @@ import http from 'http';
 import net from 'net';
 import assert from 'assert';
 
-import TunnelAgent from './TunnelAgent';
+import TunnelAgent from '../../src/lib/TunnelAgent';
 
 describe('TunnelAgent', () => {
     it('should create an empty agent', async () => {
         const agent = new TunnelAgent();
-        assert.equal(agent.started, false);
+        expect(agent.started).toBe(false);
 
         const info = await agent.listen();
-        assert.ok(info.port > 0);
+        expect(info.port).toBeGreaterThan(0);
         agent.destroy();
     });
 
     it('should create a new server and accept connections', async () => {
         const agent = new TunnelAgent();
-        assert.equal(agent.started, false);
+        expect(agent.started).toBe(false);
 
         const info = await agent.listen();
         const sock = net.createConnection({ port: info.port });
 
         // in this test we wait for the socket to be connected
-        await new Promise(resolve => sock.once('connect', resolve));
+        await new Promise<void>(resolve => sock.once('connect', resolve));
 
-        const agentSock = await new Promise((resolve, reject) => {
+        const agentSock = await new Promise<net.Socket>((resolve, reject) => {
             agent.createConnection({}, (err, sock) => {
                 if (err) {
                     reject(err);
                 }
-                resolve(sock);
+                resolve(sock!);
             });
         });
 
         agentSock.write('foo');
-        await new Promise(resolve => sock.once('readable', resolve));
+        await new Promise<void>(resolve => sock.once('readable', resolve));
 
-        assert.equal('foo', sock.read().toString());
+        expect('foo').toBe(sock.read().toString());
         agent.destroy();
         sock.destroy();
     });
 
     it('should reject connections over the max', async () => {
         const agent = new TunnelAgent({
-            maxTcpSockets: 2,
+            maxSockets: 2,
         });
-        assert.equal(agent.started, false);
+        expect(agent.started).toBe(false);
 
         const info = await agent.listen();
         const sock1 = net.createConnection({ port: info.port });
         const sock2 = net.createConnection({ port: info.port });
 
         // two valid socket connections
-        const p1 = new Promise(resolve => sock1.once('connect', resolve));
-        const p2 = new Promise(resolve => sock2.once('connect', resolve));
+        const p1 = new Promise<void>(resolve => sock1.once('connect', resolve));
+        const p2 = new Promise<void>(resolve => sock2.once('connect', resolve));
         await Promise.all([p1, p2]);
 
         const sock3 = net.createConnection({ port: info.port });
-        const p3 = await new Promise(resolve => sock3.once('close', resolve));
+        await new Promise<void>(resolve => sock3.once('close', resolve));
 
         agent.destroy();
         sock1.destroy();
@@ -67,29 +67,29 @@ describe('TunnelAgent', () => {
 
     it('should queue createConnection requests', async () => {
         const agent = new TunnelAgent();
-        assert.equal(agent.started, false);
+        expect(agent.started).toBe(false);
 
         const info = await agent.listen();
 
         // create a promise for the next connection
         let fulfilled = false;
-        const waitSockPromise = new Promise((resolve, reject) => {
+        const waitSockPromise = new Promise<net.Socket>((resolve, reject) => {
             agent.createConnection({}, (err, sock) => {
                 fulfilled = true;
                 if (err) {
                     reject(err);
                 }
-                resolve(sock);
+                resolve(sock!);
             });
         });
 
         // check that the next socket is not yet available
-        await new Promise(resolve => setTimeout(resolve, 500));
-        assert(!fulfilled);
+        await new Promise<void>(resolve => setTimeout(resolve, 500));
+        expect(!fulfilled);
 
         // connect, this will make a socket available
         const sock = net.createConnection({ port: info.port });
-        await new Promise(resolve => sock.once('connect', resolve));
+        await new Promise<void>(resolve => sock.once('connect', resolve));
 
         const anotherAgentSock = await waitSockPromise;
         agent.destroy();
@@ -100,10 +100,10 @@ describe('TunnelAgent', () => {
         const agent = new TunnelAgent();
         const info = await agent.listen();
 
-        const onlinePromise = new Promise(resolve => agent.once('online', resolve));
+        const onlinePromise = new Promise<void>(resolve => agent.once('online', resolve));
 
         const sock = net.createConnection({ port: info.port });
-        await new Promise(resolve => sock.once('connect', resolve));
+        await new Promise<void>(resolve => sock.once('connect', resolve));
 
         await onlinePromise;
         agent.destroy();
@@ -114,10 +114,10 @@ describe('TunnelAgent', () => {
         const agent = new TunnelAgent();
         const info = await agent.listen();
 
-        const offlinePromise = new Promise(resolve => agent.once('offline', resolve));
+        const offlinePromise = new Promise<void>(resolve => agent.once('offline', resolve));
 
         const sock = net.createConnection({ port: info.port });
-        await new Promise(resolve => sock.once('connect', resolve));
+        await new Promise<void>(resolve => sock.once('connect', resolve));
 
         sock.end();
         await offlinePromise;
@@ -129,16 +129,16 @@ describe('TunnelAgent', () => {
         const agent = new TunnelAgent();
         const info = await agent.listen();
 
-        const offlinePromise = new Promise(resolve => agent.once('offline', resolve));
+        const offlinePromise = new Promise<void>(resolve => agent.once('offline', resolve));
 
         const sockA = net.createConnection({ port: info.port });
-        await new Promise(resolve => sockA.once('connect', resolve));
+        await new Promise<void>(resolve => sockA.once('connect', resolve));
         const sockB = net.createConnection({ port: info.port });
-        await new Promise(resolve => sockB.once('connect', resolve));
+        await new Promise<void>(resolve => sockB.once('connect', resolve));
 
         sockA.end();
 
-        const timeout = new Promise(resolve => setTimeout(resolve, 500));
+        const timeout = new Promise<void>(resolve => setTimeout(resolve, 500));
         await Promise.race([offlinePromise, timeout]);
 
         sockB.end();
@@ -149,11 +149,7 @@ describe('TunnelAgent', () => {
 
     it('should error an http request', async () => {
         class ErrorAgent extends http.Agent {
-            constructor() {
-                super();
-            }
-        
-            createConnection(options, cb) {
+            createConnection(options: any, cb: (err: Error | null, socket?: net.Socket) => void) {
                 cb(new Error('foo'));
             }
         }
@@ -167,16 +163,16 @@ describe('TunnelAgent', () => {
             agent: agent,
         };
 
-        const err = await new Promise((resolve) => {
-            const req = http.get(opt, (res) => {});
+        const err = await new Promise<Error>((resolve) => {
+            const req = http.get(opt, () => {});
             req.once('error', resolve);
         });
-        assert.equal(err.message, 'foo');
+        expect(err.message).toBe('foo');
     });
 
     it('should return stats', async () => {
         const agent = new TunnelAgent();
-        assert.deepEqual(agent.stats(), {
+        expect(agent.stats()).toEqual({
             connectedSockets: 0,
         });
     });

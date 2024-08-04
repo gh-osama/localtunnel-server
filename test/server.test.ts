@@ -1,22 +1,22 @@
 import request from 'supertest';
-import assert from 'assert';
-import { Server as WebSocketServer } from 'ws';
+import { strict as assert } from 'assert';
 import WebSocket from 'ws';
+import { WebSocketServer } from 'ws';
 import net from 'net';
 
-import createServer from './server';
+import createServer from '../src/server';
 
 describe('Server', () => {
     it('server starts and stops', async () => {
         const server = createServer();
-        await new Promise(resolve => server.listen(resolve));
-        await new Promise(resolve => server.close(resolve));
+        await new Promise<void>((resolve, reject) => server.listen((err?: Error) => err ? reject(err) : resolve()));
+        await new Promise<void>((resolve, reject) => server.close((err?: Error) => err ? reject(err) : resolve()));
     });
 
     it('should redirect root requests to landing page', async () => {
         const server = createServer();
         const res = await request(server).get('/');
-        assert.equal('https://localtunnel.github.io/www/', res.headers.location);
+        expect(res.headers.location).toBe('https://localtunnel.github.io/www/');
     });
 
     it('should support custom base domains', async () => {
@@ -25,13 +25,13 @@ describe('Server', () => {
         });
 
         const res = await request(server).get('/');
-        assert.equal('https://localtunnel.github.io/www/', res.headers.location);
+        expect(res.headers.location).toBe('https://localtunnel.github.io/www/');
     });
 
     it('reject long domain name requests', async () => {
         const server = createServer();
         const res = await request(server).get('/thisdomainisoutsidethesizeofwhatweallowwhichissixtythreecharacters');
-        assert.equal(res.body.message, 'Invalid subdomain. Subdomains must be lowercase and between 4 and 63 alphanumeric characters.');
+        expect(res.body.message).toBe('Invalid subdomain. Subdomains must be lowercase and between 4 and 63 alphanumeric characters.');
     });
 
     it('should upgrade websocket requests', async () => {
@@ -39,18 +39,18 @@ describe('Server', () => {
         const server = createServer({
             domain: 'example.com',
         });
-        await new Promise(resolve => server.listen(resolve));
+        await new Promise<void>((resolve, reject) => server.listen((err?: Error) => err ? reject(err) : resolve()));
 
         const res = await request(server).get('/websocket-test');
         const localTunnelPort = res.body.port;
 
-        const wss = await new Promise((resolve) => {
+        const wss = await new Promise<WebSocketServer>((resolve) => {
             const wsServer = new WebSocketServer({ port: 0 }, () => {
                 resolve(wsServer);
             });
         });
 
-        const websocketServerPort = wss.address().port;
+        const websocketServerPort = (wss.address() as net.AddressInfo).port;
 
         const ltSocket = net.createConnection({ port: localTunnelPort });
         const wsSocket = net.createConnection({ port: websocketServerPort });
@@ -62,9 +62,9 @@ describe('Server', () => {
             });
         });
 
-        const ws = new WebSocket('http://localhost:' + server.address().port, {
+        const ws = new WebSocket(`http://localhost:${(server.address() as net.AddressInfo).port}`, {
             headers: {
-                host: hostname + '.example.com',
+                host: `${hostname}.example.com`,
             }
         });
 
@@ -72,24 +72,24 @@ describe('Server', () => {
             ws.send('something');
         });
 
-        await new Promise((resolve) => {
+        await new Promise<void>((resolve) => {
             ws.once('message', (msg) => {
-                assert.equal(msg, 'something');
+                expect(msg).toBe('something');
                 resolve();
             });
         });
 
         wss.close();
-        await new Promise(resolve => server.close(resolve));
+        await new Promise<void>((resolve, reject) => server.close((err?: Error) => err ? reject(err) : resolve()));
     });
 
     it('should support the /api/tunnels/:id/status endpoint', async () => {
         const server = createServer();
-        await new Promise(resolve => server.listen(resolve));
+        await new Promise<void>((resolve, reject) => server.listen((err?: Error) => err ? reject(err) : resolve()));
 
         // no such tunnel yet
         const res = await request(server).get('/api/tunnels/foobar-test/status');
-        assert.equal(res.statusCode, 404);
+        expect(res.statusCode).toBe(404);
 
         // request a new client called foobar-test
         {
@@ -98,12 +98,12 @@ describe('Server', () => {
 
         {
             const res = await request(server).get('/api/tunnels/foobar-test/status');
-            assert.equal(res.statusCode, 200);
-            assert.deepEqual(res.body, {
+            expect(res.statusCode).toBe(200);
+            expect(res.body).toEqual({
                 connected_sockets: 0,
             });
         }
 
-        await new Promise(resolve => server.close(resolve));
+        await new Promise<void>((resolve, reject) => server.close((err?: Error) => err ? reject(err) : resolve()));
     });
 });

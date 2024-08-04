@@ -1,12 +1,12 @@
 import assert from 'assert';
 import net from 'net';
 
-import ClientManager from './ClientManager';
+import ClientManager from '../../src/lib/ClientManager';
 
 describe('ClientManager', () => {
     it('should construct with no tunnels', () => {
         const manager = new ClientManager();
-        assert.equal(manager.stats.tunnels, 0);
+        expect(manager.stats.tunnels).toBe(0);
     });
 
     it('should create a new client with random id', async () => {
@@ -38,7 +38,7 @@ describe('ClientManager', () => {
         const manager = new ClientManager();
         const client = await manager.newClient('foobar');
 
-        const socket = await new Promise((resolve) => {
+        const socket = await new Promise<net.Socket>((resolve) => {
             const netClient = net.createConnection({ port: client.port }, () => {
                 resolve(netClient);
             });
@@ -53,14 +53,15 @@ describe('ClientManager', () => {
         // wait past grace period (1s)
         await new Promise(resolve => setTimeout(resolve, 1500));
         assert(!manager.hasClient('foobar'));
-    }).timeout(5000);
+    });
 
-    it('should remove correct client once it goes offline', async () => {
+    test('should remove correct client once it goes offline', async () => {
+        jest.setTimeout(5000);
         const manager = new ClientManager();
         const clientFoo = await manager.newClient('foo');
         const clientBar = await manager.newClient('bar');
 
-        const socket = await new Promise((resolve) => {
+        const socket = await new Promise<net.Socket>((resolve) => {
             const netClient = net.createConnection({ port: clientFoo.port }, () => {
                 resolve(netClient);
             });
@@ -76,9 +77,10 @@ describe('ClientManager', () => {
 
         manager.removeClient('foo');
         socket.end();
-    }).timeout(5000);
+    });
 
-    it('should remove clients if they do not connect within 5 seconds', async () => {
+    test('should remove clients if they do not connect within 5 seconds', async () => {
+        jest.setTimeout(5000);
         const manager = new ClientManager();
         const clientFoo = await manager.newClient('foo');
         assert(manager.hasClient('foo'));
@@ -86,5 +88,5 @@ describe('ClientManager', () => {
         // wait past grace period (1s)
         await new Promise(resolve => setTimeout(resolve, 1500));
         assert(!manager.hasClient('foo'));
-    }).timeout(5000);
+    });
 });

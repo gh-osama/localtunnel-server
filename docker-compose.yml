@@ -1,0 +1,11 @@
+version: '3'
+services:
+  localtunnel-server:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+    volumes:
+      - ./src:/usr/src/app/src
+      - ./test:/usr/src/app/test

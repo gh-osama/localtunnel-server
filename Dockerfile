@@ -1,13 +1,23 @@
-FROM node:10.1.0-alpine
+# Use an official Node runtime as the base image
+FROM node:16
 
-WORKDIR /app
+# Set the working directory in the container
+WORKDIR /usr/src/app
 
-COPY package.json /app/
-COPY yarn.lock /app/
+# Copy package.json and package-lock.json
+COPY package*.json ./
 
-RUN yarn install --production && yarn cache clean
+# Install dependencies
+RUN npm install
 
-COPY . /app
+# Copy the rest of the application code
+COPY . .
 
-ENV NODE_ENV production
-ENTRYPOINT ["node", "-r", "esm", "./bin/server"]
+# Build the TypeScript project
+RUN npm run build
+
+# Expose the port the app runs on
+EXPOSE 3000
+
+# Command to run the application
+CMD ["npm", "start"]
